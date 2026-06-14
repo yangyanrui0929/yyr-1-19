@@ -7,12 +7,14 @@ import type {
   StoryRecord,
   SettlementResult,
   Snack,
+  Festival,
 } from '@/types'
 import { calcAvgTasteMatch } from './tasteMatch'
 import { calcAvgSeatView } from './seatView'
 import { calcStoryHeat } from './storyHeat'
 import { calcSerialExpect } from './serialExpect'
 import { calcBadReview, calcBadReviewGold } from './badReview'
+import { calcFestivalBonus, calcMissedFestivalPenalty } from './festivalBonus'
 import { SEAT_PRICE_MULTIPLIER } from '@/data/seats'
 
 export function calcSettlement(
@@ -26,7 +28,9 @@ export function calcSettlement(
   lastStoryDay: Record<string, number>,
   storyScores: Record<string, number[]>,
   reputation: number,
-  snacks: Snack[]
+  snacks: Snack[],
+  festival: Festival | null,
+  festivalPrepared: boolean = false
 ): SettlementResult {
   const audience = customers.filter((c) => c.seatId !== null)
   const audienceCount = audience.length
@@ -61,10 +65,26 @@ export function calcSettlement(
   let snackRevenue = 0
   const consumedSnacks: Record<string, number> = {}
   for (const c of audience) {
-    if (c.satisfaction > 50 && Math.random() < 0.6) {
+    let buyChance = 0.6
+    if (festival) {
+      const festTagMatch = festival.preferredTags.some(
+        (t) => c.preferenceTags.includes(t)
+      )
+      if (festTagMatch) buyChance += 0.15
+    }
+    if (c.satisfaction > 50 && Math.random() < buyChance) {
       const available = snacks.filter((s) => s.stock > 0)
       if (available.length > 0) {
-        const s = available[Math.floor(Math.random() * available.length)]
+        const weightedAvailable: Snack[] = []
+        for (const s of available) {
+          const demandMul = festival?.snackDemandMul?.[s.category] ?? 1
+          const festivalOnlyBonus = s.festivalOnly === festival?.id ? 2.5 : 1
+          const weight = Math.round(demandMul * festivalOnlyBonus)
+          for (let i = 0; i < weight; i++) {
+            weightedAvailable.push(s)
+          }
+        }
+        const s = weightedAvailable[Math.floor(Math.random() * weightedAvailable.length)]
         snackRevenue += s.price - s.cost
         consumedSnacks[s.id] = (consumedSnacks[s.id] || 0) + 1
       }
@@ -75,6 +95,11 @@ export function calcSettlement(
     if (s) s.stock = Math.max(0, s.stock - n)
   }
 
+  const festivalBonusCalc = calcFestivalBonus(festival, story, branch, customers, snacks, festivalPrepared)
+  const festivalBonus = Math.round(baseEarnings * (festivalBonusCalc.value / 100) * 1.5)
+
+  const missedPenalty = calcMissedFestivalPenalty(festival, false)
+
   const totalEarnings =
     baseEarnings +
     tasteMatchBonus +
@@ -82,7 +107,8 @@ export function calcSettlement(
     storyHeatBonus +
     serialExpectBonus +
     tips +
-    snackRevenue -
+    snackRevenue +
+    festivalBonus -
     badReviewPenalty
 
   const avgSatisfaction =
@@ -93,7 +119,14 @@ export function calcSettlement(
   const satisfactionDelta = Math.round((avgSatisfaction - 50) * 0.15)
   const heatDelta = Math.round((heat.value - 50) * 0.1)
   const badReviewDelta = -badReview.value
-  const reputationDelta = satisfactionDelta + heatDelta + badReviewDelta
+  let festivalRepDelta = 0
+  if (festival && festivalPrepared) {
+    festivalRepDelta = 4
+  }
+  if (missedPenalty.reputationPenalty > 0) {
+    festivalRepDelta -= missedPenalty.reputationPenalty
+  }
+  const reputationDelta = satisfactionDelta + heatDelta + badReviewDelta + festivalRepDelta
 
   return {
     day,
@@ -106,6 +139,7 @@ export function calcSettlement(
     badReviewPenalty,
     tips,
     snackRevenue,
+    festivalBonus,
     totalEarnings,
     reputationDelta,
     avgSatisfaction,

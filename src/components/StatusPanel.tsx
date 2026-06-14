@@ -1,6 +1,7 @@
-import { Sun, Moon, Coins, Trophy, Calendar, Cloud, CloudRain, CloudSnow } from 'lucide-react'
+import { Sun, Moon, Coins, Trophy, Calendar, Cloud, CloudRain, CloudSnow, Sparkles } from 'lucide-react'
 import { useGameStore } from '@/store/useGameStore'
 import type { Weather } from '@/types'
+import { FESTIVAL_CYCLE } from '@/data/festivals'
 
 function WeatherIcon({ w }: { w: Weather }) {
   if (w === '晴') return <Sun className="w-5 h-5 text-gold" />
@@ -11,7 +12,14 @@ function WeatherIcon({ w }: { w: Weather }) {
 }
 
 export default function StatusPanel() {
-  const { day, phase, gold, reputation, weather } = useGameStore()
+  const { day, phase, gold, reputation, weather, currentFestival, upcomingFestival, festivalPrepared } = useGameStore()
+
+  const dayInCycle = ((day - 1) % FESTIVAL_CYCLE) + 1
+  const daysToNext = upcomingFestival
+    ? upcomingFestival.dayInCycle > dayInCycle
+      ? upcomingFestival.dayInCycle - dayInCycle
+      : upcomingFestival.dayInCycle + FESTIVAL_CYCLE - dayInCycle
+    : 0
 
   return (
     <div className="scroll-panel mb-6 py-4">
@@ -49,6 +57,36 @@ export default function StatusPanel() {
               <div className="stat-value text-lg">{weather}</div>
             </div>
           </div>
+
+          {currentFestival && (
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">{currentFestival.emoji}</span>
+              <div>
+                <div className="stat-label">今日节令</div>
+                <div className="stat-value text-lg text-gold flex items-center gap-1">
+                  {currentFestival.name}
+                  <Sparkles className="w-4 h-4 text-gold animate-pulse" />
+                  {festivalPrepared && (
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-tea/20 text-tea border border-tea/40">
+                      已备
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!currentFestival && upcomingFestival && (
+            <div className="flex items-center gap-2">
+              <span className="text-2xl opacity-60">{upcomingFestival.emoji}</span>
+              <div>
+                <div className="stat-label">下一节令</div>
+                <div className="stat-value text-sm text-ink-light">
+                  {upcomingFestival.name} · 还有 {daysToNext} 天
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-6">

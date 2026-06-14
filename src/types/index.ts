@@ -14,6 +14,8 @@ export interface Snack {
   cost: number
   quality: number
   emoji: string
+  festivalOnly?: FestivalId
+  perishable?: boolean
 }
 
 export type SeatTier = '普通' | '雅座' | '贵宾'
@@ -53,6 +55,7 @@ export interface Story {
   heat: number
   branches: StoryBranch[]
   summary: string
+  festivalOnly?: FestivalId
 }
 
 export type CustomerType = '书生' | '商贾' | '妇人' | '江湖人' | '官员' | '平民'
@@ -148,6 +151,10 @@ export interface GameState {
   storyScores: Record<string, number[]>
   isSettlement: boolean
   lastSettlement: SettlementResult | null
+  currentFestival: Festival | null
+  upcomingFestival: Festival | null
+  festivalMissed: boolean
+  festivalPrepared: boolean
 }
 
 export interface SettlementResult {
@@ -161,9 +168,31 @@ export interface SettlementResult {
   badReviewPenalty: number
   tips: number
   snackRevenue: number
+  festivalBonus: number
   totalEarnings: number
   reputationDelta: number
   avgSatisfaction: number
+}
+
+export type FestivalId = 'qingming' | 'zhongqiu' | 'chongyang' | 'laba'
+
+export interface Festival {
+  id: FestivalId
+  name: string
+  emoji: string
+  dayInCycle: number
+  cycleLength: number
+  customerBonus: number
+  snackDemandMul: Partial<Record<SnackCategory, number>>
+  preferredTags: string[]
+  description: string
+}
+
+export interface FestivalState {
+  currentFestival: Festival | null
+  upcomingFestival: Festival | null
+  festivalMissed: boolean
+  festivalPrepared: boolean
 }
 
 export interface CalcResult {

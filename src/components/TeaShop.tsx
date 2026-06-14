@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Plus, Minus, ShoppingCart } from 'lucide-react'
+import { Plus, Minus, ShoppingCart, Sparkles } from 'lucide-react'
 import { useGameStore } from '@/store/useGameStore'
+import { FESTIVALS } from '@/data/festivals'
 
 export default function TeaShop() {
-  const { snacks, gold, buySnack } = useGameStore()
+  const { snacks, gold, buySnack, currentFestival } = useGameStore()
   const [qtys, setQtys] = useState<Record<string, number>>({})
 
   const groupedByCategory = snacks.reduce(
@@ -40,16 +41,44 @@ export default function TeaShop() {
               const totalCost = s.cost * q
               const canBuy = gold >= totalCost && q > 0
               const stockPct = (s.stock / s.maxStock) * 100
+              const isFestivalSnack = !!s.festivalOnly
+              const isCurrentFestivalSnack = s.festivalOnly === currentFestival?.id
+              const festivalInfo = s.festivalOnly ? FESTIVALS.find(f => f.id === s.festivalOnly) : null
               return (
-                <div key={s.id} className="card-ancient">
+                <div
+                  key={s.id}
+                  className={`card-ancient relative ${
+                    isCurrentFestivalSnack
+                      ? 'border-2 border-gold ring-2 ring-gold/30 bg-gold/5'
+                      : isFestivalSnack
+                      ? 'border-sandal/50'
+                      : ''
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-2xl">{s.emoji}</span>
-                        <div>
-                          <div className="font-song font-semibold text-ink">{s.name}</div>
+                        <div className="flex-1">
+                          <div className="font-song font-semibold text-ink flex items-center gap-1.5">
+                            {s.name}
+                            {isFestivalSnack && (
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-0.5 ${
+                                  isCurrentFestivalSnack
+                                    ? 'bg-gold/30 text-gold border-gold/50'
+                                    : 'bg-sandal/10 text-sandal border-sandal/30'
+                                }`}
+                                title={festivalInfo ? `${festivalInfo.name}限定` : '节令限定'}
+                              >
+                                <Sparkles className="w-3 h-3" />
+                                {festivalInfo?.name ?? '节令'}限定
+                              </span>
+                            )}
+                          </div>
                           <div className="text-xs text-ink-light">
                             进价 {s.cost}文 · 售价 {s.price}文 · 品质 {'★'.repeat(s.quality)}
+                            {s.perishable && <span className="ml-1 text-cinnabar">· 易过期</span>}
                           </div>
                         </div>
                       </div>

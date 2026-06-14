@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Scroll, Flame, Heart, Users, UserCheck, Sparkles } from 'lucide-react'
+import { Scroll, Flame, Heart, Users, UserCheck, Sparkles, BookOpen } from 'lucide-react'
 import { useGameStore } from '@/store/useGameStore'
 import type { Story, StoryBranch } from '@/types'
 import { calcStoryHeat } from '@/utils/storyHeat'
 import { calcSerialExpect } from '@/utils/serialExpect'
 import { calcAvgTasteMatch } from '@/utils/tasteMatch'
+import { FESTIVALS } from '@/data/festivals'
 
 export default function StoryPicker() {
   const {
@@ -19,17 +20,14 @@ export default function StoryPicker() {
     storyScores,
     startPerformance,
     customers,
+    currentFestival,
   } = useGameStore()
 
   const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null)
   const seated = customers.filter((c) => c.seatId !== null)
 
-  const selectedStory = selectedStoryId
-    ? availableStories.find((s) => s.id === selectedStoryId)
-    : null
-
   const tasteMatchForBranch = (branch: StoryBranch) => {
-    return calcAvgTasteMatch(seated, branch)
+    return calcAvgTasteMatch(seated, branch, currentFestival)
   }
 
   const tasteMatchForStory = (story: Story) => {
@@ -61,17 +59,40 @@ export default function StoryPicker() {
                 const expect = calcSerialExpect(story.id, day, lastStoryDay, storyScores)
                 const tasteMatch = tasteMatchForStory(story)
                 const isSelected = selectedStoryId === story.id
+                const isFestivalStory = !!story.festivalOnly
+                const isCurrentFestivalStory = story.festivalOnly === currentFestival?.id
+                const storyFestivalInfo = story.festivalOnly ? FESTIVALS.find(f => f.id === story.festivalOnly) : null
 
                 return (
                   <div
                     key={story.id}
                     onClick={() => setSelectedStoryId(isSelected ? null : story.id)}
-                    className={`card-ancient cursor-pointer hover:-translate-y-1 transition-all border-2 ${
-                      isSelected ? 'border-gold ring-2 ring-gold/30' : 'border-sandal/30 hover:border-gold'
+                    className={`card-ancient cursor-pointer hover:-translate-y-1 transition-all border-2 relative ${
+                      isSelected
+                        ? 'border-gold ring-2 ring-gold/30'
+                        : isCurrentFestivalStory
+                        ? 'border-gold/70 ring-2 ring-gold/20 bg-gold/5'
+                        : 'border-sandal/30 hover:border-gold'
                     }`}
                   >
-                    <div className="aspect-[3/4] flex flex-col items-center justify-center bg-gradient-to-b from-paper to-paper-dark rounded-lg mb-3 border border-sandal/30">
-                      <span className="text-5xl mb-2">📜</span>
+                    <div className="aspect-[3/4] flex flex-col items-center justify-center bg-gradient-to-b from-paper to-paper-dark rounded-lg mb-3 border border-sandal/30 relative">
+                      {isFestivalStory && (
+                        <div className="absolute top-2 right-2">
+                          <span
+                            className={`text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-0.5 ${
+                              isCurrentFestivalStory
+                                ? 'bg-gold/40 text-gold border-gold/60'
+                                : 'bg-sandal/20 text-sandal border-sandal/40'
+                            }`}
+                          >
+                            <BookOpen className="w-3 h-3" />
+                            {storyFestivalInfo?.name ?? '节令'}限定
+                          </span>
+                        </div>
+                      )}
+                      <span className="text-5xl mb-2">
+                        {isCurrentFestivalStory ? '✨📜✨' : '📜'}
+                      </span>
                       <span className="font-brush text-xl text-sandal text-center px-2">
                         {story.title}
                       </span>
@@ -80,9 +101,19 @@ export default function StoryPicker() {
                     <div className="text-xs text-ink-light mb-2 line-clamp-2">{story.summary}</div>
 
                     <div className="flex flex-wrap gap-1 mb-3">
-                      {story.tags.map((t) => (
-                        <span key={t} className="tag-chip">#{t}</span>
-                      ))}
+                      {story.tags.map((t) => {
+                        const isFestTag = currentFestival?.preferredTags.includes(t)
+                        return (
+                          <span
+                            key={t}
+                            className={`tag-chip ${
+                              isFestTag ? '!bg-gold/30 !text-gold !border-gold/40' : ''
+                            }`}
+                          >
+                            #{t}
+                          </span>
+                        )
+                      })}
                     </div>
 
                     <div className="grid grid-cols-3 gap-2 text-xs mb-3">

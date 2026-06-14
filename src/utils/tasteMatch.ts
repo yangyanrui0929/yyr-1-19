@@ -1,6 +1,6 @@
-import type { Customer, StoryBranch, CalcResult } from '@/types'
+import type { Customer, StoryBranch, CalcResult, Festival } from '@/types'
 
-export function calcTasteMatch(customer: Customer, branch: StoryBranch): CalcResult {
+export function calcTasteMatch(customer: Customer, branch: StoryBranch, festival: Festival | null = null): CalcResult {
   const details: Record<string, number> = {}
   const prefTags = customer.preferenceTags
   const storyTags = branch.tags
@@ -22,19 +22,29 @@ export function calcTasteMatch(customer: Customer, branch: StoryBranch): CalcRes
   const generosityBonus = Math.min((customer.generosity - 1) * 5, 20)
   details['慷慨加成'] = generosityBonus
 
-  const value = Math.min(100, baseScore + generosityBonus)
+  let festivalBonus = 0
+  if (festival) {
+    const festTagMatch = branch.tags.filter((t) => festival.preferredTags.includes(t)).length
+    const custFestTagMatch = customer.preferenceTags.filter((t) => festival.preferredTags.includes(t)).length
+    if (festTagMatch > 0 && custFestTagMatch > 0) {
+      festivalBonus = Math.min(20, festTagMatch * 5 + custFestTagMatch * 3)
+      details['节气口味加成'] = festivalBonus
+    }
+  }
+
+  const value = Math.min(100, baseScore + generosityBonus + festivalBonus)
   details['最终值'] = value
 
   return { value, details }
 }
 
-export function calcAvgTasteMatch(customers: Customer[], branch: StoryBranch): CalcResult {
+export function calcAvgTasteMatch(customers: Customer[], branch: StoryBranch, festival: Festival | null = null): CalcResult {
   if (customers.length === 0) return { value: 0, details: { '无客人': 0 } }
 
   const details: Record<string, number> = {}
   let sum = 0
   for (const c of customers) {
-    const r = calcTasteMatch(c, branch)
+    const r = calcTasteMatch(c, branch, festival)
     sum += r.value
     details[c.name] = r.value
   }
